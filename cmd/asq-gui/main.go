@@ -84,9 +84,9 @@ func main() {
 	)
 
 	// Create text areas for the bottom panes
-	gitCommitCode := widget.NewTextArea()
+	gitCommitCode := widget.NewMultiLineEntry()
 	gitCommitCode.Disable() // Read-only
-	workingSetCode := widget.NewTextArea()
+	workingSetCode := widget.NewMultiLineEntry()
 	workingSetCode.Disable() // Read-only
 
 	// Create split containers
