@@ -64,6 +64,22 @@ func loadFileLocations(path string) []FileLocation {
 	return locations
 }
 
+func loadAsqFromStdin() []FileLocation {
+	var locations []FileLocation
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "//asq_match ") {
+			// Example: "//asq_match test_source/test001.go:26:1"
+			// Trim "//asq_match " and parse
+			trimmed := strings.TrimPrefix(line, "//asq_match ")
+			loc := parseFileLocation(trimmed)
+			locations = append(locations, loc)
+		}
+	}
+	return locations
+}
+
 func main() {
 	myApp := app.New()
 	window := myApp.NewWindow("ASQ GUI")
@@ -105,10 +121,15 @@ func main() {
 	window.SetContent(mainSplit)
 	window.Resize(fyne.NewSize(1024, 768))
 
-	// Load initial file locations from a file
+	// Load initial file locations from a file or stdin
 	if len(os.Args) > 1 {
-		locations = loadFileLocations(os.Args[1])
-		fileList.Refresh()
+		if os.Args[1] == "--display" {
+			locations = loadAsqFromStdin()
+			fileList.Refresh()
+		} else {
+			locations = loadFileLocations(os.Args[1])
+			fileList.Refresh()
+		}
 	}
 
 	// Handle list selection
