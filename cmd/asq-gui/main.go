@@ -81,6 +81,9 @@ func (m *MyGreenBlackTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVa
 	if name == theme.ColorNameDisabled {
 		return color.RGBA{0, 128, 0, 255} // darker green for disabled state
 	}
+	if name == theme.ColorNameInputBackground {
+		return color.Black // ensure MultiLineEntry widgets have black background
+	}
 	return theme.DefaultTheme().Color(name, variant)
 }
 
