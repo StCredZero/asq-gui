@@ -6,10 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"image/color"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -62,6 +64,36 @@ func loadFileLocations(path string) []FileLocation {
 		locations = append(locations, parseFileLocation(scanner.Text()))
 	}
 	return locations
+}
+
+// MyGreenBlackTheme implements a custom theme with green text on black background
+type MyGreenBlackTheme struct{}
+
+var _ fyne.Theme = (*MyGreenBlackTheme)(nil)
+
+func (m *MyGreenBlackTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	if name == theme.ColorNameBackground {
+		return color.Black
+	}
+	if name == theme.ColorNameForeground {
+		return color.RGBA{0, 255, 0, 255} // bright green
+	}
+	if name == theme.ColorNameDisabled {
+		return color.RGBA{0, 128, 0, 255} // darker green for disabled state
+	}
+	return theme.DefaultTheme().Color(name, variant)
+}
+
+func (m *MyGreenBlackTheme) Font(style fyne.TextStyle) fyne.Resource {
+	return theme.DefaultTheme().Font(style)
+}
+
+func (m *MyGreenBlackTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
+	return theme.DefaultTheme().Icon(name)
+}
+
+func (m *MyGreenBlackTheme) Size(name fyne.ThemeSizeName) float32 {
+	return theme.DefaultTheme().Size(name)
 }
 
 func loadAsqFromStdin() []FileLocation {
@@ -120,6 +152,9 @@ func main() {
 
 	window.SetContent(mainSplit)
 	window.Resize(fyne.NewSize(1024, 768))
+
+	// Apply custom theme for green text on black background
+	myApp.Settings().SetTheme(&MyGreenBlackTheme{})
 
 	// Load initial file locations from a file or stdin
 	if len(os.Args) > 1 {
