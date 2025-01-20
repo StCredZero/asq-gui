@@ -91,6 +91,9 @@ func (m *MyGreenBlackTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVa
 		return color.RGBA{0, 0, 255, 255} // bright blue for matched text
 	case theme.ColorNameSeparator:
 		return color.Gray{Y: 128} // medium grey for split container dividers
+	// Return default colors for focus and selection to prevent blue background in list
+	case theme.ColorNameFocus, theme.ColorNameSelection, theme.ColorNameHover, theme.ColorNamePressed:
+		return theme.DefaultTheme().Color(name, variant)
 	default:
 		return theme.DefaultTheme().Color(name, variant)
 	}
@@ -221,13 +224,21 @@ func main() {
 				row.Cells = append(row.Cells, widget.TextGridCell{Rune: r})
 			}
 			gitCommitCode.SetRow(rowIndex, row)
-			// Apply blue color to the matched line range (convert from 1-based to 0-based index)
+			
+			// Set default green style for all text
+			greenStyle := &widget.CustomTextGridStyle{
+				FGColor: color.RGBA{0, 255, 0, 255}, // bright green
+				BGColor: color.Black,
+			}
+			gitCommitCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, greenStyle)
+			
+			// Apply blue color to matched line range (convert from 1-based to 0-based index)
 			if rowIndex >= loc.Line-1 && rowIndex < loc.Line-1+loc.LineCount {
-				// Style the entire line blue using SetStyleRange
-				style := &widget.CustomTextGridStyle{
+				blueStyle := &widget.CustomTextGridStyle{
 					FGColor: color.RGBA{0, 0, 255, 255}, // bright blue
+					BGColor: color.Black,
 				}
-				gitCommitCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, style)
+				gitCommitCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, blueStyle)
 			}
 		}
 		
@@ -247,13 +258,21 @@ func main() {
 				row.Cells = append(row.Cells, widget.TextGridCell{Rune: r})
 			}
 			workingSetCode.SetRow(rowIndex, row)
-			// Apply blue color to the matched line range (convert from 1-based to 0-based index)
+			
+			// Set default green style for all text
+			greenStyle := &widget.CustomTextGridStyle{
+				FGColor: color.RGBA{0, 255, 0, 255}, // bright green
+				BGColor: color.Black,
+			}
+			workingSetCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, greenStyle)
+			
+			// Apply blue color to matched line range (convert from 1-based to 0-based index)
 			if rowIndex >= loc.Line-1 && rowIndex < loc.Line-1+loc.LineCount {
-				// Style the entire line blue using SetStyleRange
-				style := &widget.CustomTextGridStyle{
+				blueStyle := &widget.CustomTextGridStyle{
 					FGColor: color.RGBA{0, 0, 255, 255}, // bright blue
+					BGColor: color.Black,
 				}
-				workingSetCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, style)
+				workingSetCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, blueStyle)
 			}
 		}
 		
