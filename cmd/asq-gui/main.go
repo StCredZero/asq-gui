@@ -89,6 +89,8 @@ func (m *MyGreenBlackTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVa
 		return color.Black // ensure MultiLineEntry widgets have black background
 	case ColorNameMatchedText:
 		return color.RGBA{0, 0, 255, 255} // bright blue for matched text
+	case theme.ColorNameSeparator:
+		return color.Gray{Y: 128} // medium grey for split container dividers
 	default:
 		return theme.DefaultTheme().Color(name, variant)
 	}
@@ -221,13 +223,11 @@ func main() {
 			gitCommitCode.SetRow(rowIndex, row)
 			// Apply blue color to the matched line range (convert from 1-based to 0-based index)
 			if rowIndex >= loc.Line-1 && rowIndex < loc.Line-1+loc.LineCount {
-				// Style the entire line blue
+				// Style the entire line blue using SetStyleRange
 				style := &widget.CustomTextGridStyle{
-					FGColor: color.RGBA{0, 0, 255, 255},
+					FGColor: color.RGBA{0, 0, 255, 255}, // bright blue
 				}
-				for i := 0; i < len(lineStr); i++ {
-					gitCommitCode.SetStyle(rowIndex, i, style)
-				}
+				gitCommitCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, style)
 			}
 		}
 		
@@ -249,13 +249,11 @@ func main() {
 			workingSetCode.SetRow(rowIndex, row)
 			// Apply blue color to the matched line range (convert from 1-based to 0-based index)
 			if rowIndex >= loc.Line-1 && rowIndex < loc.Line-1+loc.LineCount {
-				// Style the entire line blue
+				// Style the entire line blue using SetStyleRange
 				style := &widget.CustomTextGridStyle{
-					FGColor: color.RGBA{0, 0, 255, 255},
+					FGColor: color.RGBA{0, 0, 255, 255}, // bright blue
 				}
-				for i := 0; i < len(lineStr); i++ {
-					workingSetCode.SetStyle(rowIndex, i, style)
-				}
+				workingSetCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, style)
 			}
 		}
 		
