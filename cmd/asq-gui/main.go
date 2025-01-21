@@ -16,9 +16,10 @@ import (
 )
 
 type FileLocation struct {
-	Path   string
-	Line   int
-	Column int
+	Path      string
+	Line      int    // Starting line number
+	Column    int
+	LineCount int    // Number of lines in the matched text
 }
 
 func parseFileLocation(line string) FileLocation {
@@ -66,25 +67,36 @@ func loadFileLocations(path string) []FileLocation {
 	return locations
 }
 
+// Custom color names for our theme
+const (
+	ColorNameMatchedText fyne.ThemeColorName = "matchedText"
+)
+
 // MyGreenBlackTheme implements a custom theme with green text on black background
 type MyGreenBlackTheme struct{}
 
 var _ fyne.Theme = (*MyGreenBlackTheme)(nil)
 
 func (m *MyGreenBlackTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
-	if name == theme.ColorNameBackground {
+	switch name {
+	case theme.ColorNameBackground:
 		return color.Black
-	}
-	if name == theme.ColorNameForeground {
+	case theme.ColorNameForeground:
 		return color.RGBA{0, 255, 0, 255} // bright green
-	}
-	if name == theme.ColorNameDisabled {
+	case theme.ColorNameDisabled:
 		return color.RGBA{0, 128, 0, 255} // darker green for disabled state
-	}
-	if name == theme.ColorNameInputBackground {
+	case theme.ColorNameInputBackground:
 		return color.Black // ensure MultiLineEntry widgets have black background
+	case ColorNameMatchedText:
+		return color.RGBA{0, 0, 255, 255} // bright blue for matched text
+	case theme.ColorNameSeparator:
+		return color.Gray{Y: 128} // medium grey for split container dividers
+	// Return default colors for focus and selection to prevent blue background in list
+	case theme.ColorNameFocus, theme.ColorNameSelection, theme.ColorNameHover, theme.ColorNamePressed:
+		return theme.DefaultTheme().Color(name, variant)
+	default:
+		return theme.DefaultTheme().Color(name, variant)
 	}
-	return theme.DefaultTheme().Color(name, variant)
 }
 
 func (m *MyGreenBlackTheme) Font(style fyne.TextStyle) fyne.Resource {
@@ -102,16 +114,33 @@ func (m *MyGreenBlackTheme) Size(name fyne.ThemeSizeName) float32 {
 func loadAsqFromStdin() []FileLocation {
 	var locations []FileLocation
 	scanner := bufio.NewScanner(os.Stdin)
+	var currentLoc *FileLocation
+	var matchedLines []string
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "//asq_match ") {
-			// Example: "//asq_match test_source/test001.go:26:1"
-			// Trim "//asq_match " and parse
+			// If we were collecting a previous match, save it
+			if currentLoc != nil {
+				currentLoc.LineCount = len(matchedLines)
+				matchedLines = nil
+			}
+			// Start new match
 			trimmed := strings.TrimPrefix(line, "//asq_match ")
 			loc := parseFileLocation(trimmed)
+			currentLoc = &loc
 			locations = append(locations, loc)
+		} else if currentLoc != nil {
+			// Collect lines of the current match
+			matchedLines = append(matchedLines, line)
 		}
 	}
+	
+	// Handle the last match if any
+	if currentLoc != nil && len(matchedLines) > 0 {
+		currentLoc.LineCount = len(matchedLines)
+	}
+	
 	return locations
 }
 
@@ -134,16 +163,20 @@ func main() {
 		},
 	)
 
-	// Create text areas for the bottom panes
-	gitCommitCode := widget.NewMultiLineEntry()
-	gitCommitCode.Disable() // Read-only
-	workingSetCode := widget.NewMultiLineEntry()
-	workingSetCode.Disable() // Read-only
+	// Create text grids for the bottom panes
+	gitCommitCode := widget.NewTextGrid()
+	gitCommitCode.ShowLineNumbers = false
+	workingSetCode := widget.NewTextGrid()
+	workingSetCode.ShowLineNumbers = false
 
+	// Create scrollable containers for the code views
+	gitScroll := container.NewScroll(gitCommitCode)
+	workingScroll := container.NewScroll(workingSetCode)
+	
 	// Create split containers
 	bottomSplit := container.NewHSplit(
-		container.NewScroll(gitCommitCode),
-		container.NewScroll(workingSetCode),
+		gitScroll,
+		workingScroll,
 	)
 	bottomSplit.SetOffset(0.5) // Equal split
 
@@ -179,11 +212,73 @@ func main() {
 		
 		// Update git commit version
 		gitContent := getGitFileContent(loc.Path, loc.Line, loc.Column)
-		gitCommitCode.SetText(gitContent)
+		lines := strings.Split(gitContent, "\n")
+		gitCommitCode.Resize(fyne.NewSize(gitCommitCode.Size().Width, float32(len(lines))))
+		
+		// Calculate line height for scrolling (assuming monospace font)
+		lineHeight := gitCommitCode.MinSize().Height / float32(len(lines))
+		
+		for rowIndex, lineStr := range lines {
+			var row widget.TextGridRow
+			for _, r := range lineStr {
+				row.Cells = append(row.Cells, widget.TextGridCell{Rune: r})
+			}
+			gitCommitCode.SetRow(rowIndex, row)
+			
+			// Set default green style for all text
+			greenStyle := &widget.CustomTextGridStyle{
+				FGColor: color.RGBA{0, 255, 0, 255}, // bright green
+				BGColor: color.Black,
+			}
+			gitCommitCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, greenStyle)
+			
+			// Apply blue color to matched line range (convert from 1-based to 0-based index)
+			if rowIndex >= loc.Line-1 && rowIndex < loc.Line-1+loc.LineCount {
+				blueStyle := &widget.CustomTextGridStyle{
+					FGColor: color.RGBA{0, 0, 255, 255}, // bright blue
+					BGColor: color.Black,
+				}
+				gitCommitCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, blueStyle)
+			}
+		}
+		
+		// Scroll to matched line range
+		matchedLineY := lineHeight * float32(loc.Line-1)
+		gitScroll.Offset = fyne.NewPos(0, matchedLineY)
+		gitScroll.Refresh()
 		
 		// Update working set version
 		workingContent := getWorkingSetContent(loc.Path)
-		workingSetCode.SetText(workingContent)
+		lines = strings.Split(workingContent, "\n")
+		workingSetCode.Resize(fyne.NewSize(workingSetCode.Size().Width, float32(len(lines))))
+		
+		for rowIndex, lineStr := range lines {
+			var row widget.TextGridRow
+			for _, r := range lineStr {
+				row.Cells = append(row.Cells, widget.TextGridCell{Rune: r})
+			}
+			workingSetCode.SetRow(rowIndex, row)
+			
+			// Set default green style for all text
+			greenStyle := &widget.CustomTextGridStyle{
+				FGColor: color.RGBA{0, 255, 0, 255}, // bright green
+				BGColor: color.Black,
+			}
+			workingSetCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, greenStyle)
+			
+			// Apply blue color to matched line range (convert from 1-based to 0-based index)
+			if rowIndex >= loc.Line-1 && rowIndex < loc.Line-1+loc.LineCount {
+				blueStyle := &widget.CustomTextGridStyle{
+					FGColor: color.RGBA{0, 0, 255, 255}, // bright blue
+					BGColor: color.Black,
+				}
+				workingSetCode.SetStyleRange(rowIndex, 0, rowIndex, len(lineStr)-1, blueStyle)
+			}
+		}
+		
+		// Scroll working set to matched line range
+		workingScroll.Offset = fyne.NewPos(0, matchedLineY)
+		workingScroll.Refresh()
 	}
 
 	window.ShowAndRun()
